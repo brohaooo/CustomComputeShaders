@@ -15,7 +15,7 @@ public:
 		USceneComponent* Root;
 
 	UPROPERTY(EditAnywhere)
-		UStaticMeshComponent* static_mesh;
+		UStaticMeshComponent* static_mesh_for_visualization;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = ShaderDemo)
 		class UTextureRenderTarget2D* RenderTarget;

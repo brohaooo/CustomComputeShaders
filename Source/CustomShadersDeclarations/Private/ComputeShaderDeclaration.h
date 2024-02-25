@@ -28,6 +28,14 @@ public:
 };
 
 
+struct Derived_IPooledRenderTarget : public IPooledRenderTarget {
+public:
+	FSceneRenderTargetItem GetRenderTargetItem() {
+		return RenderTargetItem;  // Access the protected member from the base class
+	}
+};
+
+
 /// <summary>
 /// A singleton Shader Manager for our Shader Type
 /// </summary>

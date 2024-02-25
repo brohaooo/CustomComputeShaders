@@ -11,7 +11,7 @@ AWhiteNoiseConsumer::AWhiteNoiseConsumer()
 	Root = CreateDefaultSubobject<USceneComponent>(TEXT("Root"));
 	RootComponent = Root;
 
-	static_mesh = CreateDefaultSubobject<UStaticMeshComponent>(TEXT("Static Mesh"));
+	static_mesh_for_visualization = CreateDefaultSubobject<UStaticMeshComponent>(TEXT("Static Mesh"));
 
 	TimeStamp = 0;
 }
@@ -24,15 +24,17 @@ void AWhiteNoiseConsumer::BeginPlay()
 
 
 	//Assuming that the static mesh is already using the material that we're targeting, we create an instance and assign it to it
-	UMaterialInstanceDynamic* MID = static_mesh->CreateAndSetMaterialInstanceDynamic(0);
+	UMaterialInstanceDynamic* MID = static_mesh_for_visualization->CreateAndSetMaterialInstanceDynamic(0);
 	MID->SetTextureParameterValue("InputTexture", (UTexture*)RenderTarget);
+	UE_LOG(LogTemp, Warning, TEXT("Created."));
+
 }
 
 void AWhiteNoiseConsumer::BeginDestroy()
 {
 	FWhiteNoiseCSManager::Get()->EndRendering();
 	Super::BeginDestroy();
-
+	UE_LOG(LogTemp, Warning, TEXT("Destroyed."));
 }
 
 // Called every frame

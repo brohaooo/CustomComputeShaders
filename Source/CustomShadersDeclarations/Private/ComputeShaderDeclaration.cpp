@@ -95,14 +95,35 @@ void FWhiteNoiseCSManager::EndRendering()
 	}
 
 	OnPostResolvedSceneColorHandle.Reset();
+	// Release the render target
+	ComputeShaderOutput.SafeRelease();
 }
 
 //Update the parameters by a providing an instance of the Parameters structure used by the shader manager
 void FWhiteNoiseCSManager::UpdateParameters(FWhiteNoiseCSParameters& params)
 {
+	bool needUpdateUAV = false;
+	if (bCachedParamsAreValid)
+	{
+		needUpdateUAV = (params.GetRenderTargetSize() != cachedParams.GetRenderTargetSize());
+	}
+	else
+	{
+		needUpdateUAV = true;
+	}
+
 	cachedParams = params;
 	bCachedParamsAreValid = true;
+
+	if (needUpdateUAV)
+	{
+		ComputeShaderOutput.SafeRelease();
+	}
+
 }
+
+
+
 
 
 /// <summary>
@@ -124,7 +145,7 @@ void FWhiteNoiseCSManager::Execute_RenderThread(FRDGBuilder& GraphBuilder, const
 	//Render Thread Assertion
 	check(IsInRenderingThread());
 
-
+	
 	//If the render target is not valid, get an element from the render target pool by supplying a Descriptor
 	if (!ComputeShaderOutput.IsValid())
 	{
@@ -133,18 +154,24 @@ void FWhiteNoiseCSManager::Execute_RenderThread(FRDGBuilder& GraphBuilder, const
 		ComputeShaderOutputDesc.DebugName = TEXT("WhiteNoiseCS_Output_RenderTarget");
 		GRenderTargetPool.FindFreeElement(RHICmdList, ComputeShaderOutputDesc, ComputeShaderOutput, TEXT("WhiteNoiseCS_Output_RenderTarget"));
 	}
-	
+
+	Derived_IPooledRenderTarget * tmp_cased = static_cast<Derived_IPooledRenderTarget*>(ComputeShaderOutput.GetReference());
+
+
 	//Unbind the previously bound render targets
 	//UnbindRenderTargets(RHICmdList);
 
 	//Specify the resource transition, we're executing this in post scene rendering so we set it to Graphics to Compute
-	RHICmdList.TransitionResource(ERHIAccess::UAVCompute, ComputeShaderOutput->GetRenderTargetItem().GetRHI());
+	//RHICmdList.TransitionResource(ERHIAccess::UAVCompute, ComputeShaderOutput->GetRenderTargetItem().GetRHI());
+	//FRHITransitionInfo TransitionInfo(tmp_cased->GetRHI()->GetTextureReference(), ERHIAccess::UAVGraphics, ERHIAccess::UAVCompute);
+	//RHICmdList.Transition(TArrayView<const FRHITransitionInfo>(&TransitionInfo, 1), ERHIPipeline::Graphics, ERHIPipeline::AsyncCompute);
 
 	//Fill the shader parameters structure with tha cached data supplied by the client
 	FWhiteNoiseCS::FParameters PassParameters;
-	PassParameters.OutputTexture = ComputeShaderOutput->GetRenderTargetItem().UAV;
+	PassParameters.OutputTexture = tmp_cased->GetRenderTargetItem().UAV;
 	PassParameters.Dimensions = FVector2f(cachedParams.GetRenderTargetSize().X, cachedParams.GetRenderTargetSize().Y);
 	PassParameters.TimeStamp = cachedParams.TimeStamp;
+	UE_LOG(LogTemp, Warning, TEXT("DEBUG: x %d | y %d "), cachedParams.GetRenderTargetSize().X, cachedParams.GetRenderTargetSize().Y);
 
 	//Get a reference to our shader type from global shader map
 	TShaderMapRef<FWhiteNoiseCS> whiteNoiseCS(GetGlobalShaderMap(GMaxRHIFeatureLevel));
@@ -155,6 +182,6 @@ void FWhiteNoiseCSManager::Execute_RenderThread(FRDGBuilder& GraphBuilder, const
 			FMath::DivideAndRoundUp(cachedParams.GetRenderTargetSize().Y, NUM_THREADS_PER_GROUP_DIMENSION), 1));
 
 	//Copy shader's output to the render target provided by the client
-	RHICmdList.CopyTexture(ComputeShaderOutput->GetRenderTargetItem().ShaderResourceTexture, cachedParams.RenderTarget->GetRenderTargetResource()->TextureRHI, FRHICopyTextureInfo());
+	RHICmdList.CopyTexture(tmp_cased->GetRenderTargetItem().ShaderResourceTexture, cachedParams.RenderTarget->GetRenderTargetResource()->TextureRHI, FRHICopyTextureInfo());
 
 }
